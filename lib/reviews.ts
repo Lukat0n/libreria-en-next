@@ -3,6 +3,7 @@ import type { Review } from './types'
 
 const KEY = 'bookreviews-v1'
 const VOTES_KEY = 'bookreviews-votes-v1'
+type Dir = 'up' | 'down'
 
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
@@ -16,28 +17,37 @@ export function sanitizeRating(n: number) {
 }
 
 export function listReviews(bookId: string): Review[] {
-  const db = get(KEY, {} as Record<string, Review[]>)
-  const arr = db[bookId] || []
+  const db = get<Record<string, Review[]>>(KEY, {})
+  const arr: Review[] = db[bookId] ?? []
   return sortReviews(arr)
 }
 
 export function addReview(bookId: string, rating: number, text: string) {
-  const db = get(KEY, {} as Record<string, Review[]>)
-  const r: Review = { id: uid(), bookId, rating: sanitizeRating(rating), text: text.trim(), createdAt: Date.now(), up: 0, down: 0 }
-  const arr = db[bookId] || []
+  const db = get<Record<string, Review[]>>(KEY, {})
+  const r: Review = {
+    id: uid(),
+    bookId,
+    rating: sanitizeRating(rating),
+    text: text.trim(),
+    createdAt: Date.now(),
+    up: 0,
+    down: 0
+  }
+  const arr: Review[] = db[bookId] ?? []
   db[bookId] = [r, ...arr]
   set(KEY, db)
   return r
 }
 
-export function voteReview(reviewId: string, direction: 'up' | 'down', bookId: string) {
-  const db = get(KEY, {} as Record<string, Review[]>)
-  const votes = get(VOTES_KEY, {} as Record<string, 'up' | 'down'>)
-  const arr = db[bookId] || []
-  const idx = arr.findIndex(x => x.id === reviewId)
+export function voteReview(reviewId: string, direction: Dir, bookId: string) {
+  const db = get<Record<string, Review[]>>(KEY, {})
+  const votes = get<Record<string, Dir>>(VOTES_KEY, {})
+  const arr: Review[] = db[bookId] ?? []
+  const idx = arr.findIndex((x: Review) => x.id === reviewId)
   if (idx === -1) return null
-  const r = arr[idx]
+  const r = { ...arr[idx] }
   const prev = votes[reviewId]
+
   if (prev === direction) {
     if (direction === 'up' && r.up > 0) r.up -= 1
     if (direction === 'down' && r.down > 0) r.down -= 1
@@ -46,9 +56,10 @@ export function voteReview(reviewId: string, direction: 'up' | 'down', bookId: s
     if (prev === 'up' && r.up > 0) r.up -= 1
     if (prev === 'down' && r.down > 0) r.down -= 1
     if (direction === 'up') r.up += 1
-    if (direction === 'down') r.down += 1
+    else r.down += 1
     votes[reviewId] = direction
   }
+
   arr[idx] = r
   db[bookId] = arr
   set(KEY, db)
